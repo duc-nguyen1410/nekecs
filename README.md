@@ -269,4 +269,11 @@ cases/     cyl2d: session files, setup.sh, run_all.sh
 tools/     build_nektar.sh, figure scripts
 docs/      figures
 DESIGN.md  formulation, algorithms, and every finding and measurement so far
+LICENSE    MIT
 ```
+
+## License
+
+MIT, see [LICENSE](LICENSE). Nektar++ is distributed under its own MIT
+license; the cylinder mesh and starting fields are copied from its test suite
+by `setup.sh` and are not part of this repository.
