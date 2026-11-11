@@ -16,5 +16,5 @@ cp "$T/Cyl_AdaptiveSFD.rst"    "$RUN/init.rst"   # near-steady SFD field
 cp "$T/Cyl_AdaptiveSFD_Eig.rst" "$RUN/stab_init.rst" # Arnoldi start vector
 cp "$HERE"/*.xml "$RUN"/            # session files
 echo "run directory: $RUN"
-echo "next: bash $HERE/run_all.sh $RUN            # EQ, stability, DNS, PO (~20 min)"
+echo "next: bash $HERE/run_all.sh $RUN            # EQ, stability, DNS, PO (~40 min)"
 echo "  or: bash $HERE/run_all.sh $RUN --continuation  # plus the Re branches (hours)"

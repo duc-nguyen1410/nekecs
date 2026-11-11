@@ -87,7 +87,7 @@ sudo apt install build-essential gfortran cmake git libboost-all-dev libopenblas
 
 **2. Nektar++ v5.10.0**, built with its solver libraries (nekecs links the
 incompressible solver classes). The script configures, builds and installs
-to `~/opt/nektar++`; the build takes about 30 min with all cores.
+to `~/opt/nektar++`; the build takes about 10 min on 24 cores.
 
 ```bash
 git clone --branch v5.10.0 --depth 1 https://gitlab.nektar.info/nektar/nektar.git ~/src/nektar
@@ -122,7 +122,8 @@ Nektar++, configure with `-DNEKECS_WITH_NEKTAR=OFF`.
 
 The mesh (746 quadrilaterals, polynomial order 5) and starting fields come
 from a Nektar++ regression test. `run_all.sh` creates the run directory and
-runs every step in order, skipping steps whose output already exists:
+runs every step in order (about 40 min on one core), skipping steps whose
+output already exists:
 
 ```bash
 bash cases/cyl2d/run_all.sh ~/runs/cyl2d
@@ -130,10 +131,10 @@ bash cases/cyl2d/run_all.sh ~/runs/cyl2d
 
 | Step | Session | Output | Time (1 core) |
 |---|---|---|---|
-| Equilibrium + leading eigenvalues | `session.xml` | `session_eq.fld` | ~6 min |
-| Nektar++ Arnoldi cross-check | `stability.xml` | `mesh_eig_0.fld` | ~3 min |
-| DNS from the equilibrium to the shedding cycle | `shed.xml` | `shed_shed.fld`, `shed_probe.dat` | ~5 min |
-| Shedding periodic orbit + Floquet multipliers | `po.xml` | `po_po.fld` | ~10 min |
+| Equilibrium + leading eigenvalues | `session.xml` | `session_eq.fld` | ~10 min |
+| Nektar++ Arnoldi cross-check | `stability.xml` | `mesh_eig_0.fld` | ~2 min |
+| DNS from the equilibrium to the shedding cycle | `shed.xml` | `shed_shed.fld`, `shed_probe.dat` | ~10 min |
+| Shedding periodic orbit + Floquet multipliers | `po.xml` | `po_po.fld` | ~15 min |
 | Continuation in Re (with `--continuation`) | `cont_eq.xml`, `cont_po.xml` | `cont_*_branch.dat` | hours |
 
 Then make the figures (vorticity and grid interpolation with FieldConvert,

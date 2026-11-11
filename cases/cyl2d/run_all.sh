@@ -8,7 +8,7 @@
 #   5. (--continuation) EQ and PO branches in Re, run in parallel
 #                                    cont_eq.xml, cont_po.xml -> *_branch.dat
 #
-# Steps 1-4 take ~20 min on one core; step 5 several hours.
+# Steps 1-4 take ~40 min on one core; step 5 several hours.
 #
 # Usage: bash cases/cyl2d/run_all.sh [run_dir] [--continuation]
 # Environment: NEKECS_BIN (default ~/build/nekecs), NEKTAR_BIN
