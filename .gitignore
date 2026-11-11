@@ -1,0 +1,30 @@
+# Builds live outside the repo (~/build/...), but guard against in-tree ones.
+build/
+build-*/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+compile_commands.json
+
+# Nektar++ run outputs (runs live in ~/runs/...; never commit fields or meshes)
+*.fld
+*.chk
+*.rst
+*.pts
+*.dat
+*.xml.gz
+*.vtu
+*.plt
+*.evl
+*.his
+*.mdl
+
+# Editors / OS / Python
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+

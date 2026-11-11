@@ -1,0 +1,3 @@
+# Sources run under WSL/Linux: keep LF everywhere, even with core.autocrlf.
+* text=auto eol=lf
+*.png binary

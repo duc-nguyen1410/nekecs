@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Continuation of the steady cylinder wake in Re, from the Re = 100
+  equilibrium (session_eq.fld, from session.xml) down through the Hopf
+  bifurcation. The two leading eigenvalues are computed at every point;
+  the sign change of Re(lambda) locates the Hopf point. Output:
+  cont_eq_branch.dat, cont_eq_c<NNN>.fld.
+-->
+<NEKTAR xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.nektar.info/schema/nektar.xsd">
+    <EXPANSIONS>
+        <E COMPOSITE="C[0-1]" NUMMODES="6" FIELDS="u,v,p" TYPE="MODIFIED"/>
+    </EXPANSIONS>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="SolverType" VALUE="VelocityCorrectionScheme"/>
+            <I PROPERTY="EQTYPE" VALUE="UnsteadyNavierStokes"/>
+            <I PROPERTY="Projection" VALUE="Galerkin"/>
+            <I PROPERTY="EvolutionOperator" VALUE="Nonlinear"/>
+            <I PROPERTY="ECS_ContParam" VALUE="Re"/>
+        </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+        <PARAMETERS>
+            <P> TimeStep      = 0.01      </P>
+            <P> NumSteps      = 100       </P>
+            <P> IO_InfoSteps  = 1000000   </P>
+            <P> Re            = 100.0     </P>
+            <P> Kinvis        = 1.0/Re    </P>
+            <!-- nekecs -->
+            <P> ECS_Steps     = 100       </P>  <!-- T = 1 -->
+            <P> ECS_Tol       = 1e-10     </P>
+            <P> ECS_MaxNewton = 30        </P>
+            <P> ECS_MaxKrylov = 60        </P>
+            <P> ECS_GmresTol  = 1e-3      </P>
+            <P> ECS_Verify    = 4         </P>
+            <P> ECS_Start     = 1         </P>  <!-- constant-history start -->
+            <!-- stability of the converged state (0 = off) -->
+            <P> ECS_Eigs      = 2         </P>
+            <P> ECS_EigMaxDim = 80        </P>
+            <P> ECS_EigTol    = 1e-4      </P>
+            <P> ECS_EigStart  = 2         </P>  <!-- two-level history: exact -->
+            <!-- continuation: Re 100 -> 40 -->
+            <P> ECS_ContEnd   = 40        </P>
+            <P> ECS_ContDmu   = -2        </P>  <!-- first, natural-parameter step -->
+            <P> ECS_ContDs    = 4         </P>  <!-- arclength step, in Re units -->
+            <P> ECS_ContDsMax = 8         </P>
+            <P> ECS_ContSteps = 40        </P>
+        </PARAMETERS>
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> p </V>
+        </VARIABLES>
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[2] </B> <!-- cylinder wall -->
+            <B ID="1"> C[3] </B> <!-- far field -->
+            <B ID="2"> C[4] </B> <!-- outlet -->
+        </BOUNDARYREGIONS>
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="u" VALUE="0"/>
+                <D VAR="v" VALUE="0"/>
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0"/>
+            </REGION>
+            <REGION REF="1">
+                <D VAR="u" VALUE="1"/>
+                <D VAR="v" VALUE="0"/>
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0"/>
+            </REGION>
+            <REGION REF="2">
+                <N VAR="u" VALUE="0"/>
+                <N VAR="v" VALUE="0"/>
+                <D VAR="p" VALUE="0"/>
+            </REGION>
+        </BOUNDARYCONDITIONS>
+        <FUNCTION NAME="InitialConditions">
+            <F VAR="u,v,p" FILE="session_eq.fld"/>
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>
