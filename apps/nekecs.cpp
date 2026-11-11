@@ -643,7 +643,8 @@ int run_continuation(VCSFlowMap &fm, Problem &pb, const Params &P,
         if (root)
         {
             const FieldVector u0 = fm.level0(p.x);
-            branch << std::setprecision(10) << p.index << " " << p.mu << " "
+            branch << std::defaultfloat << std::setprecision(10) << p.index
+                   << " " << p.mu << " "
                    << std::scientific << std::setprecision(6) << p.arclength / sw
                    << " " << p.dmu_ds * sw << " " << p.newton_its << " "
                    << std::setprecision(3) << p.residual / norm(S, p.x) << " "
@@ -691,13 +692,14 @@ int run_continuation(VCSFlowMap &fm, Problem &pb, const Params &P,
     if (root)
     {
         std::cout << "[nekecs] continuation " << to_string(R.status) << ": "
-                  << R.mu.size() << " points, " << pn << " from " << R.mu.front()
+                  << R.mu.size() << " points, " << pn << " from "
+                  << std::defaultfloat << std::setprecision(8) << R.mu.front()
                   << " to " << R.mu.back() << ", failed correctors = "
                   << R.failed_correctors << ", flow-map calls = " << fm.calls()
                   << "\n[nekecs] wrote " << name << "_branch.dat" << std::endl;
         for (const auto &e : events)
         {
-            std::cout << "[nekecs] *** " << e << std::endl;
+            std::cout << "[nekecs] summary: " << e << std::endl;
         }
     }
     const bool ok = R.status == ContinuationStatus::ReachedBound ||

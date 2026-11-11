@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  nekecs session file: find the steady (unstable) wake of a cylinder at Re = 60
+  on the gmsh mesh made from cylinder.geo. Run from the run directory:
+
+      nekecs mesh.xml session.xml
+
+  A Nektar++ "session file" holds everything except the mesh: polynomial
+  order, equations, time stepping, parameters, boundary and initial
+  conditions. nekecs reads the same file plus a few ECS_* parameters.
+  Output is named after this file: session_eq.fld, session_eig0_re.fld, ...
+-->
+<NEKTAR>
+    <!-- Polynomial expansion on every element. NUMMODES = polynomial order + 1:
+         higher is more accurate and slower. C[10] is the fluid region (the
+         Physical Surface(10) of cylinder.geo). FIELDS: velocity u, v and
+         pressure p. -->
+    <EXPANSIONS>
+        <E COMPOSITE="C[10]" NUMMODES="5" FIELDS="u,v,p" TYPE="MODIFIED"/>
+    </EXPANSIONS>
+
+    <CONDITIONS>
+        <!-- Which equations and which scheme. nekecs requires exactly these:
+             the incompressible Navier-Stokes equations, velocity-correction
+             scheme, IMEX order 2 (below). -->
+        <SOLVERINFO>
+            <I PROPERTY="SolverType"        VALUE="VelocityCorrectionScheme"/>
+            <I PROPERTY="EQTYPE"            VALUE="UnsteadyNavierStokes"/>
+            <I PROPERTY="EvolutionOperator" VALUE="Nonlinear"/>
+            <I PROPERTY="Projection"        VALUE="Galerkin"/>
+        </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+
+        <PARAMETERS>
+            <!-- Physics. Lengths are in cylinder diameters D and velocities in
+                 inflow speed U, so Re = U D / nu and Kinvis = nu = 1 / Re. -->
+            <P> Re            = 60        </P>
+            <P> Kinvis        = 1.0/Re    </P>
+            <!-- Time step. Too large and the run blows up (CFL limit); halve
+                 it when you raise NUMMODES or refine the mesh. -->
+            <P> TimeStep      = 0.005     </P>
+            <P> NumSteps      = 1         </P>  <!-- unused by nekecs -->
+            <P> IO_InfoSteps  = 1000000   </P>  <!-- silence per-step output -->
+
+            <!-- nekecs: an equilibrium u satisfies Phi_T(u) = u, where
+                 Phi_T is ECS_Steps time steps (T = ECS_Steps * TimeStep). -->
+            <P> ECS_Steps     = 200       </P>  <!-- T = 1 -->
+            <P> ECS_Tol       = 1e-10     </P>  <!-- stop at |Phi_T(u)-u|/|u| < tol -->
+            <P> ECS_MaxNewton = 20        </P>
+            <P> ECS_MaxKrylov = 60        </P>
+            <!-- After convergence: the 2 leading eigenvalues (stability). -->
+            <P> ECS_Eigs      = 2         </P>
+            <P> ECS_EigMaxDim = 80        </P>
+            <P> ECS_EigTol    = 1e-4      </P>
+        </PARAMETERS>
+
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> p </V>
+        </VARIABLES>
+
+        <!-- Boundary regions: composites from the mesh (Physical Curve
+             numbers in cylinder.geo). -->
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[1] </B>  <!-- cylinder wall -->
+            <B ID="1"> C[2] </B>  <!-- inflow and the two sides -->
+            <B ID="2"> C[3] </B>  <!-- outflow -->
+        </BOUNDARYREGIONS>
+
+        <!-- D = Dirichlet (value given), N = Neumann (normal derivative given).
+             USERDEFINEDTYPE="H" on p: the standard high-order pressure
+             condition of the velocity-correction scheme on velocity-Dirichlet
+             boundaries. -->
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">  <!-- no slip -->
+                <D VAR="u" VALUE="0"/>
+                <D VAR="v" VALUE="0"/>
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0"/>
+            </REGION>
+            <REGION REF="1">  <!-- uniform stream -->
+                <D VAR="u" VALUE="1"/>
+                <D VAR="v" VALUE="0"/>
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0"/>
+            </REGION>
+            <REGION REF="2">  <!-- outflow: zero gradient, p = 0 -->
+                <N VAR="u" VALUE="0"/>
+                <N VAR="v" VALUE="0"/>
+                <D VAR="p" VALUE="0"/>
+            </REGION>
+        </BOUNDARYCONDITIONS>
+
+        <!-- Initial condition = the Newton starting guess. Here: the end of
+             the short DNS run with dns.xml, written to mesh.fld. -->
+        <FUNCTION NAME="InitialConditions">
+            <F VAR="u,v,p" FILE="mesh.fld"/>
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

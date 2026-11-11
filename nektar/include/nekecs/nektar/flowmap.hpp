@@ -28,6 +28,7 @@
 #include <LibUtilities/BasicUtils/Vmath.hpp>
 #include <SpatialDomains/MeshGraphIO.h>
 
+#include <filesystem>
 #include <iomanip>
 #include <limits>
 #include <memory>
@@ -672,7 +673,7 @@ public:
                                  f[i]->UpdatePhys(), 1);
             f[i]->FwdTrans(f[i]->GetPhys(), f[i]->UpdateCoeffs());
         }
-        m_eq->WriteFld(file);
+        write_fld(file);
     }
 
     // Write a perturbation field (e.g. an eigenvector) to a .fld file. Unlike
@@ -690,7 +691,7 @@ public:
         auto &p = f[m_nvel];
         Vmath::Zero(p->GetNpoints(), p->UpdatePhys(), 1);
         Vmath::Zero(p->GetNcoeffs(), p->UpdateCoeffs(), 1);
-        m_eq->WriteFld(file);
+        write_fld(file);
     }
 
     // Pseudo-random field of the shape of the state (deterministic seed).
@@ -712,6 +713,21 @@ public:
     }
 
 private:
+    // Write the solver fields to `file`, replacing it. (Nektar++ would rename
+    // an existing file to <name>.bak<N>.fld first, which leaves dozens of
+    // backups of files rewritten at every Newton step.)
+    void write_fld(const std::string &file)
+    {
+        auto comm = m_session->GetComm();
+        if (comm->GetRank() == 0)
+        {
+            std::error_code ec;
+            std::filesystem::remove_all(file, ec); // .fld is a directory in parallel
+        }
+        comm->Block();
+        m_eq->WriteFld(file);
+    }
+
     // Load velocity into the solver (projected onto the discrete space with
     // the Dirichlet values imposed) and zero the pressure.
     void set_state(const FieldVector &u)

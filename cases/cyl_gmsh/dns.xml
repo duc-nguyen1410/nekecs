@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Plain Nektar++ time stepping (DNS) from a uniform stream, to make a
+  starting guess for nekecs. Same physics as session.xml; only the time
+  span, the output and the initial condition differ. Run:
+
+      IncNavierStokesSolver mesh.xml dns.xml
+
+  Nektar++ names its output after the FIRST file: this writes mesh.fld
+  (the final state), which session.xml reads as its initial condition.
+-->
+<NEKTAR>
+    <EXPANSIONS>
+        <E COMPOSITE="C[10]" NUMMODES="5" FIELDS="u,v,p" TYPE="MODIFIED"/>
+    </EXPANSIONS>
+
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="SolverType"        VALUE="VelocityCorrectionScheme"/>
+            <I PROPERTY="EQTYPE"            VALUE="UnsteadyNavierStokes"/>
+            <I PROPERTY="EvolutionOperator" VALUE="Nonlinear"/>
+            <I PROPERTY="Projection"        VALUE="Galerkin"/>
+        </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+
+        <PARAMETERS>
+            <P> Re            = 60        </P>
+            <P> Kinvis        = 1.0/Re    </P>
+            <P> TimeStep      = 0.005     </P>
+            <P> FinTime       = 40        </P>  <!-- simulate t = 0 .. 40 D/U -->
+            <P> NumSteps      = FinTime/TimeStep </P>
+            <P> IO_InfoSteps  = 1000      </P>  <!-- progress line every 1000 steps -->
+        </PARAMETERS>
+
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> p </V>
+        </VARIABLES>
+
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[1] </B>  <!-- cylinder wall -->
+            <B ID="1"> C[2] </B>  <!-- inflow and sides -->
+            <B ID="2"> C[3] </B>  <!-- outflow -->
+        </BOUNDARYREGIONS>
+
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="u" VALUE="0"/>
+                <D VAR="v" VALUE="0"/>
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0"/>
+            </REGION>
+            <REGION REF="1">
+                <D VAR="u" VALUE="1"/>
+                <D VAR="v" VALUE="0"/>
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0"/>
+            </REGION>
+            <REGION REF="2">
+                <N VAR="u" VALUE="0"/>
+                <N VAR="v" VALUE="0"/>
+                <D VAR="p" VALUE="0"/>
+            </REGION>
+        </BOUNDARYCONDITIONS>
+
+        <!-- Start from a uniform stream everywhere (the no-slip wall is
+             imposed from the first step). -->
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="u" VALUE="1"/>
+            <E VAR="v" VALUE="0"/>
+            <E VAR="p" VALUE="0"/>
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>
