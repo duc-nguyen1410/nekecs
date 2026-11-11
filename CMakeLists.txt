@@ -1,12 +1,18 @@
 cmake_minimum_required(VERSION 3.12)
 project(nekecs CXX)
 
-# Backend-agnostic algorithms (header-only) and their tests.
+# Backend-agnostic algorithms (header-only) and their tests (ctest).
 enable_testing()
 add_subdirectory(core)
 
 # --- Nektar++ backend -------------------------------------------------------
-# Configure with -DNektar++_DIR=<prefix>/lib64/nektar++/cmake
+# Configure with -DNektar++_DIR=<prefix>/lib64/nektar++/cmake, or with
+# -DNEKECS_WITH_NEKTAR=OFF to build and test only the core library.
+option(NEKECS_WITH_NEKTAR "Build the Nektar++ backend and applications" ON)
+if(NOT NEKECS_WITH_NEKTAR)
+    return()
+endif()
+
 find_package(Nektar++ REQUIRED)
 
 add_library(nekecs_nektar INTERFACE)
@@ -20,26 +26,13 @@ target_link_options(nekecs_nektar INTERFACE "LINKER:--no-as-needed")
 target_link_libraries(nekecs_nektar INTERFACE nekecs_core
     ${NEKTAR++_LIBRARIES} ${NEKTAR++_TP_LIBRARIES})
 
-add_executable(nekecs apps/nekecs.cpp)
-target_link_libraries(nekecs PRIVATE nekecs_nektar)
+# Applications: the solver, the DNS helper, and diagnostics.
+foreach(app nekecs shed diag_startup diag_param)
+    add_executable(${app} apps/${app}.cpp)
+    target_link_libraries(${app} PRIVATE nekecs_nektar)
+endforeach()
+install(TARGETS nekecs shed RUNTIME DESTINATION bin)
 
+# Adapter test: needs a run directory with a mesh (see README).
 add_executable(test_flowmap nektar/tests/test_flowmap.cpp)
 target_link_libraries(test_flowmap PRIVATE nekecs_nektar)
-
-add_executable(flowmap_probe apps/probe/flowmap_probe.cpp)
-target_include_directories(flowmap_probe PRIVATE
-    ${NEKTAR++_INCLUDE_DIRS} ${NEKTAR++_TP_INCLUDE_DIRS})
-target_compile_definitions(flowmap_probe PRIVATE ${NEKTAR++_DEFINITIONS})
-target_link_options(flowmap_probe PRIVATE "LINKER:--no-as-needed")
-target_link_libraries(flowmap_probe PRIVATE ${NEKTAR++_LIBRARIES} ${NEKTAR++_TP_LIBRARIES})
-
-install(TARGETS nekecs RUNTIME DESTINATION bin)
-
-add_executable(diag_startup apps/diag_startup.cpp)
-target_link_libraries(diag_startup PRIVATE nekecs_nektar)
-
-add_executable(shed apps/shed.cpp)
-target_link_libraries(shed PRIVATE nekecs_nektar)
-
-add_executable(diag_param apps/diag_param.cpp)
-target_link_libraries(diag_param PRIVATE nekecs_nektar)

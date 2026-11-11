@@ -1,32 +1,35 @@
 # nekecs — design
 
 A toolkit for computing exact coherent structures (ECS) of the incompressible
-Navier–Stokes equations in complex geometries: equilibria (EQ), traveling waves
-(TW), periodic orbits (PO) and relative periodic orbits (RPO), plus their linear
-stability. Modeled on ECSAct (Dedalus-based), with Nektar++ as the time-stepper.
+Navier–Stokes equations in complex geometries: equilibria (EQ) and periodic
+orbits (PO), their linear stability, and their continuation in parameters.
+Modeled on ECSAct (Dedalus-based), with Nektar++ as the time-stepper.
+
+Scope (decided 2026-11-10): EQ and PO only. Traveling waves and relative
+periodic orbits need a continuous symmetry (a periodic direction), which
+complex inflow/outflow domains do not have; discrete symmetries
+(shift-reflect) are equally geometry-specific. Neither is planned.
 
 ## 1. Problem formulation
 
 Let `Φ_T(u)` be the Nektar++ flow map: integrate the incompressible NS from
-velocity field `u` for time `T`. With a symmetry operator `σ` (identity, a
-spanwise shift `τ_ℓ`, a reflection `R`, or a combination), we seek
+velocity field `u` for time `T`. We seek
 
-    F(u, T, ℓ) = σ_ℓ Φ_T(u) − u = 0
+    F(u, T) = Φ_T(u) − u = 0
 
-| Solution | Unknowns    | Phase conditions                        |
+| Solution | Unknowns    | Phase condition                          |
 |----------|-------------|------------------------------------------|
 | EQ       | u           | none (T fixed, chosen for conditioning)  |
-| TW       | u, ℓ        | spatial: ⟨∂_z u*, δu⟩ = 0                |
-| PO       | u, T        | temporal: ⟨f(u*), δu⟩ = 0                |
-| RPO      | u, T, ℓ     | temporal and spatial                     |
+| PO       | u, T        | temporal: ⟨f(u_ref), u − u_ref⟩ = 0      |
 
-where `f(u)` is the NS right-hand side (≈ (Φ_dt(u) − u)/dt) and `u*` is the
-current Newton iterate. Spanwise shifts only exist in quasi-3D runs (Fourier
-direction), where `τ_ℓ` multiplies mode k by `exp(i k ℓ)`.
+where `f(u)` is the NS right-hand side (≈ (Φ_dt(u) − u)/dt) at a reference
+state. In practice the state also carries the previous time level u_{n−1}
+(see "Two-level history state").
 
 Inner product: `⟨a, b⟩ = ∫_Ω a·b dΩ`, evaluated with the spectral/hp quadrature
-(Nektar++ `Integral` / `PhysIntegral`), never a plain coefficient dot product.
-Degrees of freedom on Dirichlet boundaries are excluded (perturbations are zero there).
+(Nektar++ `Integral`), never a plain coefficient dot product. Perturbations
+vanish on Dirichlet boundaries because every state is projected with the
+boundary data imposed.
 
 ## 2. Algorithm
 
@@ -58,19 +61,17 @@ Floquet multipliers (PO).
 ## 4. Code layout
 
 ```
-core/      Backend-agnostic C++: Vector concept (dot, axpy, scale, copy),
-           GMRES (Arnoldi + Hessenberg kept for hookstep), hookstep,
-           Newton driver, Arnoldi eigensolver. Header-only templates.
-           Tested on Lorenz with no Nektar++ link (Kuramoto–Sivashinsky
-           would add a high-dimensional PDE test; not done yet).
-nektar/    Nektar++ adapter: field vector type (wraps the velocity
-           ExpList arrays + T + ℓ), flow map built on the IncNavierStokes
-           EquationSystem, symmetry operators, I/O to .fld/.chk.
-apps/      nekecs executable: reads session XML plus an <ECS> parameter block
-           (solution type, tolerances, trust-region params, symmetries).
-cases/     cyl2d (validation), later cyl3d-quasi3D (spanwise RPOs), channel.
-tools/     Python: convergence plots, recurrence analysis for initial guesses,
-           spectra.
+core/      Backend-agnostic, header-only C++17 (core/include/nekecs/): vector-space
+           concept, GMRES, hookstep, Newton, Arnoldi, pseudo-arclength
+           continuation. Tested on Lorenz and fold problems, no Nektar++ link.
+nektar/    Nektar++ adapter (nektar/include/nekecs/nektar/flowmap.hpp): field
+           vector and inner product, exact flow map on the velocity-correction
+           scheme with its own time loop, variable dt, parameter changes.
+apps/      nekecs (EQ/PO, stability, continuation), shed (DNS for PO guesses),
+           diag_startup and diag_param (flow-map diagnostics).
+cases/     cyl2d: session files, setup.sh, run_all.sh.
+tools/     build_nektar.sh, figure scripts (make_cyl2d_figures.sh, plot_cyl2d.py,
+           plot_branch.py).
 ```
 
 ### core/ (implemented 2026-11-10)
@@ -84,7 +85,7 @@ Header-only C++17, `core/include/nekecs/`, no dependencies:
 | `hookstep.hpp` | `HookstepSolver(H, beta).solve(delta)`: SVD once per Krylov space, bisection on μ |
 | `newton.hpp` | `newton_hookstep(space, F, x0, options[, jacobian])`: FD or user J·v, trust-region accept/reject/grow, `on_accept` callback (return true to re-evaluate F after moving a phase reference) |
 
-Tests (`core/tests`, `ctest` in `~/build/nekecs-core`):
+Tests (`core/tests`, run by `ctest`):
 - `test_linalg`: SVD on cond ≈ 1e10 matrix, GMRES vs dense solve (err 4e-13),
   Arnoldi relation, unconstrained hookstep = GMRES solution, constrained
   hookstep on the trust-region boundary, predicted residual exact.
@@ -109,10 +110,11 @@ e^{−(σ+1+β)T} to 4e-6 (limited by ε‖A‖ on the smallest multiplier). The
 Lorenz eigen-tests use the exact tangent-linear flow (`lorenz::flow_tangent`),
 so they test Arnoldi, not finite differences.
 
-Not yet in core: pseudo-arclength continuation, restarted Arnoldi.
+Not yet in core: restarted Arnoldi. (Continuation: see "Parameter continuation".)
 
 ### Integration with Nektar++ (verified 2026-11-10, v5.10.0)
-Out-of-tree works, no fork needed. `apps/probe/` is the working reference:
+Out-of-tree works, no fork needed. (The first probe of this, `apps/probe/`, was
+removed once the adapter replaced it; it is in the git history.)
 
 - Build Nektar++ with `NEKTAR_BUILD_SOLVER_LIBS=ON`; it installs
   `libIncNavierStokesSolver.so`, its headers under
@@ -327,20 +329,26 @@ is not idempotent (1.8e-8) and the FD Jacobian is useless. With
 flow-map calls take 2 min (2 ranks), 34 s (4), 13 s (8) vs ~12 s serial. Run
 small 2D cases serially; revisit for 3D.
 
-## 5. Validation ladder
+## 5. Validation ladder and roadmap
 
-1. `core/`: hookstep on Lorenz POs; GMRES vs dense solve on random matrices.
-2. 2D cylinder, Re = 100: unstable steady wake (EQ). Compare with Nektar++ SFD;
-   leading eigenvalue should be unstable (shedding Hopf near Re ≈ 47).
-3. 2D cylinder, Re = 100: shedding PO, St ≈ 0.164; Floquet multipliers
-   (one trivial multiplier = 1). **Done:** St = 0.1671, μ = 1 to 2e-7.
-   Optionally use shift-reflect symmetry to halve T (not done).
-4. Quasi-3D cylinder, Re ≈ 190–260: spanwise modes A/B, RPOs with spanwise shift.
+1. `core/`: hookstep on Lorenz POs; GMRES vs dense solve on random matrices. **Done.**
+2. 2D cylinder, Re = 100: unstable steady wake (EQ), leading eigenvalue
+   unstable. **Done:** λ = 0.127049 ± 0.740684i.
+3. 2D cylinder, Re = 100: shedding PO and Floquet multipliers. **Done:**
+   St = 0.1671, trivial multiplier 1 to 2e-7.
+4. Continuation in Re: EQ branch through the Hopf point (Re_c ≈ 46.6,
+   ω ≈ 0.74 in the literature for unconfined domains), PO branch towards it.
+   **In progress.**
+5. Geometric-parameter continuation (gap ratio of two cylinders, ...).
+6. An asymmetric 2D case (staggered cylinders, cylinder near a wall).
+7. 3D: MPI with a deterministic solver, restarted Arnoldi, a GMRES
+   preconditioner or linearised J·v.
 
 ## 6. Environment
 
 Develop in WSL Ubuntu 24.04. System packages: build-essential, gfortran,
-cmake, Boost, OpenBLAS/LAPACK, FFTW, OpenMPI, parallel HDF5, ARPACK, gmsh.
+cmake, Boost, OpenBLAS/LAPACK, FFTW, OpenMPI, parallel HDF5, ARPACK (full
+`apt install` line in the README).
 Nektar++ v5.10.0 from source via `tools/build_nektar.sh`
 (src `~/src/nektar`, install `~/opt/nektar++`). Notes:
 - Scotch is off: Ubuntu's libscotch lacks PT-Scotch for MPI builds, and building
@@ -355,4 +363,7 @@ Nektar++ v5.10.0 from source via `tools/build_nektar.sh`
 
 - Nektar++ version to pin (latest v5.x release vs master).
 - Finite-difference vs linearised Jacobian-vector products as the default.
-- Continuation (pseudo-arclength in Re) in scope for v1?
+- Geometric parameters: deformed mesh family vs Nektar++ coordinate mappings.
+- Cheaper EQ correctors: at T = 1 GMRES stalls at 60 vectors (linear
+  residual ~5e-2), so Newton converges only linearly. Options: larger T,
+  Krylov recycling between Newton steps, a preconditioner.
