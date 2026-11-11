@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """Bifurcation diagram of the 2D cylinder wake from nekecs continuation runs.
 
-Inputs (in RUN_DIR), written by `nekecs mesh.xml.gz cont_eq.xml / cont_po.xml`:
-  cont_eq_branch.dat   steady-wake branch with leading eigenvalue per point
-  cont_po_branch.dat   shedding-orbit branch (period per point)
+Inputs: <session>_branch.dat files written by `nekecs` continuation runs:
+  --eq FILES   steady-wake branch(es), with the leading eigenvalue per point
+  --po FILES   shedding-orbit branch(es), with the period per point
+Several files per branch (e.g. a run resumed from its last point) are
+joined in the order given; repeated parameter values are dropped.
 
 Columns (see the header line of each file):
   point Re arclength dmu/ds newton_its |F|/|x| verify |u| u_probe v_probe T St
   [indicator mode_re mode_im]
 
-Usage: python3 tools/plot_branch.py RUN_DIR OUT_DIR
+Usage: python3 tools/plot_branch.py OUT_DIR --eq cont_eq_branch.dat [...] [--po cont_po_branch.dat ...]
 """
-import sys
+import argparse
 from pathlib import Path
 
 import matplotlib
@@ -21,10 +23,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def load(path):
-    rows = [l.split() for l in Path(path).read_text().splitlines()
-            if l.strip() and not l.startswith("#")]
-    return np.array(rows, dtype=float) if rows else np.zeros((0, 15))
+def load(paths, ncol):
+    rows, seen = [], set()
+    for path in paths:
+        for l in Path(path).read_text().splitlines():
+            if not l.strip() or l.startswith("#"):
+                continue
+            r = [float(v) for v in l.split()]
+            key = round(r[1], 6)
+            if key not in seen:  # a resumed leg repeats its starting point
+                seen.add(key)
+                rows.append(r)
+    return np.array(rows) if rows else np.zeros((0, ncol))
 
 
 def hopf(eq):
@@ -37,14 +47,15 @@ def hopf(eq):
     return None, None
 
 
-def main(run_dir, out_dir):
-    run_dir, out_dir = Path(run_dir), Path(out_dir)
+def main(out_dir, eq_files, po_files, hopf_point=None):
+    out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    eq = load(run_dir / "cont_eq_branch.dat")
-    po_path = run_dir / "cont_po_branch.dat"
-    po = load(po_path) if po_path.exists() else np.zeros((0, 12))
+    eq = load(eq_files, 15)
+    po = load(po_files, 12)
 
     Rec, omc = hopf(eq) if eq.shape[1] >= 15 else (None, None)
+    if hopf_point:  # refined by direct solves near the crossing
+        Rec, omc = hopf_point
 
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.2), constrained_layout=True)
 
@@ -66,7 +77,7 @@ def main(run_dir, out_dir):
     if len(po):
         ax.plot(po[:, 1], po[:, 11], "s-", color="C1", ms=4,
                 label="shedding periodic orbit, 1 / T")
-    r = np.linspace(50, 160, 100)
+    r = np.linspace(47, 105, 100)  # fit valid for ~47 < Re < 180
     ax.plot(r, -3.3265 / r + 0.1816 + 1.6e-4 * r, ":", color="0.4", lw=1,
             label="Williamson (1998) fit to experiments")
     if Rec is not None:
@@ -85,6 +96,12 @@ def main(run_dir, out_dir):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        sys.exit(__doc__)
-    main(sys.argv[1], sys.argv[2])
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("out_dir")
+    ap.add_argument("--eq", nargs="+", required=True)
+    ap.add_argument("--po", nargs="*", default=[])
+    ap.add_argument("--hopf", nargs=2, type=float, metavar=("RE_C", "OMEGA_C"),
+                    help="Hopf point from a refined computation (else interpolated)")
+    a = ap.parse_args()
+    main(a.out_dir, a.eq, a.po, a.hopf)

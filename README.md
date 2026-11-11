@@ -20,6 +20,7 @@ and Channelflow's `findsoln`, moved from periodic boxes to unstructured meshes.
 ## Contents
 
 - [Example: cylinder wake at Re = 100](#example-cylinder-wake-at-re--100)
+- [Example: continuation in Re and the Hopf bifurcation](#example-continuation-in-re-and-the-hopf-bifurcation)
 - [Installation](#installation)
 - [Running the cylinder example](#running-the-cylinder-example)
 - [Using nekecs on your own case](#using-nekecs-on-your-own-case)
@@ -63,6 +64,28 @@ Starting from a short DNS, Newton solves for x = (u_n, u_{n−1}, T) in
 | Floquet multipliers | **1.00000** (time-shift mode, \|μ − 1\| ≈ 2e-7), 0.649, 0.579 ± 0.146i: a stable limit cycle |
 
 ![Shedding periodic orbit: vorticity snapshot and the DNS probe signal that produced the initial guess](docs/figures/cyl2d_re100_periodic_orbit.png)
+
+## Example: continuation in Re and the Hopf bifurcation
+
+Both solutions above were followed in Re by pseudo-arclength continuation
+(`cont_eq.xml`, `cont_po.xml`), with the leading eigenvalue of the steady wake
+computed at every point. No step failed on either branch.
+
+![Bifurcation diagram: growth rate of the steady wake and Strouhal numbers along both branches](docs/figures/cyl2d_bifurcation.png)
+
+- **Steady wake, Re 100 → 36** (18 points): the leading eigenvalue crosses
+  the imaginary axis at the Hopf point. Direct solves at Re = 46 and 46.5
+  (growth rates −2.2e-4 and +1.9e-3) give **Re_c = 46.05, ω_c = 0.748
+  (St_c = 0.119)**. Well-resolved unconfined computations give Re_c = 46.6–46.7
+  and ω_c = 0.736–0.74 (Giannetti & Luchini 2007; Sipp & Lebedev 2007); this
+  example mesh is deliberately coarse (746 elements, order 5) and lands 1% low.
+- **Shedding orbit, Re 100 → 46.4** (13 points): the period grows from 5.98
+  to 8.34, and the Strouhal number falls from 0.167 to 0.1199, meeting the
+  linear Hopf frequency St_c = 0.1191 at onset, as it must for a
+  supercritical Hopf bifurcation. Above onset the nonlinear frequency departs
+  quickly from the linear one (0.167 vs 0.118 at Re = 100) and follows
+  Williamson's experimental fit, about 1–2% above it as is typical of 2D
+  computations.
 
 ### Why the flow map is exact
 
@@ -144,6 +167,14 @@ plots with matplotlib):
 bash tools/make_cyl2d_figures.sh ~/runs/cyl2d docs/figures
 ```
 
+and, after `--continuation`, the bifurcation diagram (add `--hopf RE_C OMEGA_C`
+to mark a Hopf point refined by direct solves; otherwise it is interpolated
+along the branch):
+
+```bash
+python3 tools/plot_branch.py docs/figures --eq ~/runs/cyl2d/cont_eq_branch.dat --po ~/runs/cyl2d/cont_po_branch.dat
+```
+
 Each step can also be run on its own from the run directory, for example
 `~/build/nekecs/nekecs mesh.xml.gz session.xml`. Set
 `OPENBLAS_NUM_THREADS=1` first (`run_all.sh` does): multithreaded OpenBLAS is
@@ -219,6 +250,11 @@ an inflow angle:
   (larger T) or a larger `ECS_MaxKrylov` helps.
 - Check a new setup with `test_flowmap mesh.xml session.xml` (repeatability,
   inner product, finite-difference Jacobian).
+- To resume an interrupted continuation, copy the session, set the parameter
+  to the value of the last point in `<name>_branch.dat`, use that point's
+  `<name>_c<NNN>.fld` as the initial condition (and its period as
+  `ECS_Period` for an orbit), and run again. `tools/plot_branch.py` joins
+  the branch files of the legs.
 
 ## Repository layout
 

@@ -320,6 +320,29 @@ Parameters in the Nektar++ adapter (`VCSFlowMap::set_parameter`):
   Note `-P Re=80` alone would not do: `Kinvis = 1.0/Re` is evaluated at load,
   before command-line overrides. The fresh solver gets `-P Kinvis=0.0125`.
 
+cyl2d branches in Re (2026-11-10/11, `cases/cyl2d/cont_eq.xml`, `cont_po.xml`,
+data in `<run>/cont_*_branch.dat`, figure `docs/figures/cyl2d_bifurcation.png`):
+- EQ, Re 100 → 36, leading eigenvalue (two-level Arnoldi, T = 1, 80 vectors)
+  at every point; 0 failed correctors. σ: 0.12705 (100), 0.07668 (70.0),
+  0.03086 (54.0), 0.00826 (48.0), −0.01818 (42.0), −0.04932 (36.0); ω peaks
+  at 0.7619 near Re 66.
+- Hopf point: direct EQ solves at Re = 46.0 / 46.5 give σ = −2.196e-4 /
+  +1.913e-3 (Ritz residual 7e-4), so **Re_c = 46.05, ω_c = 0.7483,
+  St_c = 0.1191**. Literature (unconfined, well resolved): 46.6–46.7,
+  ω = 0.736–0.74. The example mesh (x ∈ [−14.5, 44.5], |y| ≤ 24.5,
+  746 quads, P = 5) is coarse; a resolution study is open.
+- PO, Re 100 → 46.41, 0 failed correctors: T 5.98417 → 8.34202, St 0.16711 →
+  0.11988, joining the linear St_c = 0.1191 at onset (supercritical Hopf).
+- Cost. EQ at T = 1: GMRES uses all 60 vectors (linear residual ~5e-2), 3–4
+  Newton iterations, ~330 flow-map calls per point including 80 for Arnoldi,
+  ds stays at 4. EQ at T = 5 (`ECS_Steps = 500`, Arnoldi still at T = 1):
+  GMRES converges in 20–22 vectors, ≤ 2 Newton iterations, ds grows to 6–8,
+  ~145 calls per point (5× dearer each): similar wall time per point but
+  fewer points. Both settings give identical σ (0.076678 at Re 70.0, 0.044084
+  at 58.0). PO: 2–3 Newton iterations, ~80 calls (600 steps each) per point.
+- The first runs were killed by a WSL update (VM restart); each branch was
+  resumed from its last saved point as a second leg (`*_leg2`) with no loss.
+
 ### MPI
 In parallel Nektar++ defaults to an iterative static-condensation solver: the
 flow map is then not deterministic (6.6e-8 repeat-call difference), projection
@@ -336,9 +359,9 @@ small 2D cases serially; revisit for 3D.
    unstable. **Done:** λ = 0.127049 ± 0.740684i.
 3. 2D cylinder, Re = 100: shedding PO and Floquet multipliers. **Done:**
    St = 0.1671, trivial multiplier 1 to 2e-7.
-4. Continuation in Re: EQ branch through the Hopf point (Re_c ≈ 46.6,
-   ω ≈ 0.74 in the literature for unconfined domains), PO branch towards it.
-   **In progress.**
+4. Continuation in Re: EQ branch through the Hopf point, PO branch down to
+   it. **Done:** Re_c = 46.05, ω_c = 0.748 on the example mesh (literature
+   46.6–46.7); the PO frequency meets the linear one at onset.
 5. Geometric-parameter continuation (gap ratio of two cylinders, ...).
 6. An asymmetric 2D case (staggered cylinders, cylinder near a wall).
 7. 3D: MPI with a deterministic solver, restarted Arnoldi, a GMRES
